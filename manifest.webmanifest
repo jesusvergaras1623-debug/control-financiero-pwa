@@ -1,0 +1,21 @@
+{
+  "name": "Control Financiero Mensual",
+  "short_name": "Finanzas",
+  "description": "Gestiona tus ingresos, gastos, presupuesto y deudas personales desde cualquier dispositivo.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0e1a",
+  "theme_color": "#0a0e1a",
+  "lang": "es",
+  "categories": ["finance", "productivity"],
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
