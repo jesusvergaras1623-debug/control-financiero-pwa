@@ -18,6 +18,7 @@
 </head>
 <body>
   <div id="app">
+    <!-- Sidebar (Desktop/Tablet) -->
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="brand-icon">₱</div>
@@ -33,6 +34,8 @@
         <label class="secondary-btn file-btn">📥 Importar respaldo<input id="importInput" type="file" accept="application/json" hidden></label>
       </div>
     </aside>
+
+    <!-- Main Content -->
     <main class="main">
       <header class="topbar">
         <div>
@@ -40,7 +43,10 @@
           <div id="pageSubtitle" class="muted">Tu panorama financiero</div>
         </div>
         <div class="top-actions">
-          <label class="month-picker"><span>Mes</span><input id="monthInput" type="month"></label>
+          <label class="month-picker">
+            <span>Mes</span>
+            <input id="monthInput" type="month">
+          </label>
           <button id="themeToggle" class="theme-toggle" title="Cambiar tema">🌙</button>
           <button id="quickAddBtn" class="primary-btn">+ Movimiento</button>
         </div>
@@ -48,9 +54,16 @@
       <section id="content"></section>
     </main>
   </div>
+
+  <!-- Bottom Navigation (Mobile) -->
   <nav id="bottomNav" class="bottom-nav"></nav>
+
+  <!-- Modal Root -->
   <div id="modalRoot"></div>
+
+  <!-- Toast -->
   <div id="toast" class="toast"></div>
+
   <script src="app.js"></script>
 </body>
 </html>
