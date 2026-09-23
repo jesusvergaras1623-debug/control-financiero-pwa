@@ -749,14 +749,23 @@ input[type="number"]::-webkit-outer-spin-button {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   padding: 16px;
-  z-index: 50;
+  z-index: 100;
   animation: backdropIn 0.2s ease-out;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Lock body scroll when modal is open without jump */
+body.modal-open {
+  overflow: hidden;
+  touch-action: none;
 }
 
 @keyframes backdropIn {
@@ -769,10 +778,13 @@ input[type="number"]::-webkit-outer-spin-button {
   border: 1px solid var(--border);
   width: min(720px, 100%);
   max-height: 90vh;
-  overflow: auto;
+  max-height: 90dvh;
+  overflow-y: auto;
   border-radius: var(--radius-xl);
   padding: 24px;
   box-shadow: var(--shadow-lg);
+  position: relative;
+  margin: auto;
   animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -807,6 +819,11 @@ input[type="number"]::-webkit-outer-spin-button {
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
+  position: sticky;
+  bottom: -24px;
+  background: var(--bg-card-solid);
+  z-index: 10;
+  padding-bottom: 6px;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -826,7 +843,7 @@ input[type="number"]::-webkit-outer-spin-button {
   opacity: 0;
   transform: translateY(16px) scale(0.95);
   transition: all var(--transition-normal);
-  z-index: 70;
+  z-index: 200;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1276,17 +1293,35 @@ input[type="number"]::-webkit-outer-spin-button {
     width: 100%;
   }
 
+  .modal-backdrop {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
   .modal {
-    padding: 18px;
-    border-radius: var(--radius-lg);
-    max-height: 85vh;
+    padding: 20px 16px;
+    border-radius: var(--radius-xl) var(--radius-xl) var(--radius-lg) var(--radius-lg);
+    max-height: 88vh;
+    max-height: 88dvh;
+    width: 100%;
+    margin-bottom: 0;
+  }
+
+  .modal-actions {
+    position: sticky;
+    bottom: -20px;
+    background: var(--bg-card-solid);
+    padding: 12px 0 16px;
+    margin-top: 14px;
+    z-index: 10;
   }
 
   .toast {
     right: 12px;
-    bottom: calc(var(--bottom-nav-height) + 12px);
+    bottom: calc(var(--bottom-nav-height) + 16px);
     left: 12px;
     max-width: none;
+    z-index: 200;
   }
 
   .filter-bar {
