@@ -90,6 +90,9 @@ function money(v) {
 }
 
 function parseNum(v) {
+  if (typeof v === 'string') {
+    v = v.replace(/[$ \.]/g, '').replace(',', '.');
+  }
   return Math.max(0, Number(v) || 0);
 }
 
@@ -269,6 +272,7 @@ function customConfirm(title, text) {
           </div>
         </div>
       </div>`;
+    document.body.classList.add('modal-open');
   });
 }
 
@@ -801,7 +805,7 @@ function movementForm(data = {}) {
       </div>
       <div class="field">
         <label>Monto</label>
-        <input id="mAmount" type="number" min="0" step="1" value="${data.amount || ''}">
+        <input id="mAmount" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="${data.amount || ''}">
       </div>
       <div class="field">
         <label>Categoría</label>
@@ -859,6 +863,7 @@ function openMovement(existing) {
         </div>
       </div>
     </div>`;
+  document.body.classList.add('modal-open');
 }
 
 function saveMovement(editId) {
@@ -1160,6 +1165,7 @@ function openDebt(editId) {
         </div>
       </div>
     </div>`;
+  document.body.classList.add('modal-open');
 }
 
 function saveDebt(editId) {
@@ -1271,6 +1277,7 @@ function openPayment(did) {
         </div>
       </div>
     </div>`;
+  document.body.classList.add('modal-open');
 }
 
 function savePayment(did) {
@@ -1342,6 +1349,7 @@ function viewDebtPayments(did) {
         </div>
       </div>
     </div>`;
+  document.body.classList.add('modal-open');
 }
 
 async function deletePayment(pid) {
@@ -1442,6 +1450,7 @@ function openAccount(aid) {
         </div>
       </div>
     </div>`;
+  document.body.classList.add('modal-open');
 }
 
 function saveAccount(aid) {
@@ -1551,7 +1560,7 @@ function addCategory() {
         </div>
       </div>
     </div>`;
-
+  document.body.classList.add('modal-open');
   // Focus the input
   requestAnimationFrame(() => {
     const inp = document.getElementById('newCatInput');
@@ -1631,6 +1640,7 @@ function bindPageEvents() {
 function closeModal() {
   const root = document.getElementById('modalRoot');
   const backdrop = root.querySelector('.modal-backdrop');
+  document.body.classList.remove('modal-open');
   if (backdrop) {
     backdrop.style.animation = 'backdropOut 0.15s ease-in forwards';
     const modal = backdrop.querySelector('.modal, .confirm-modal');
