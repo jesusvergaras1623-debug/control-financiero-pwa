@@ -179,14 +179,49 @@ function init() {
     e.preventDefault();
     window.deferredPrompt = e;
     document.getElementById('installBtn').classList.remove('hidden');
+    document.getElementById('installMobileBtn').classList.remove('hidden');
   });
 
-  document.getElementById('installBtn').onclick = async () => {
-    if (!window.deferredPrompt) return;
-    window.deferredPrompt.prompt();
+  const installApp = async () => {
+    if (!window.deferredPrompt) {
+      document.getElementById('modalRoot').innerHTML = `
+        <div class="modal-backdrop">
+          <div class="modal confirm-modal">
+            <div class="confirm-icon">📲</div>
+            <div class="confirm-title">Añadir a la pantalla de inicio</div>
+            <div class="confirm-text">En Safari, toca el botón Compartir y elige “Añadir a pantalla de inicio”. Luego confirma con “Añadir” para abrir Control Financiero como una aplicación.</div>
+            <div class="modal-actions">
+              <button class="primary-btn" data-modal-action="close">Entendido</button>
+            </div>
+          </div>
+        </div>`;
+      document.body.classList.add('modal-open');
+      return;
+    }
+
+    const prompt = window.deferredPrompt;
     window.deferredPrompt = null;
+    await prompt.prompt();
     document.getElementById('installBtn').classList.add('hidden');
+    document.getElementById('installMobileBtn').classList.add('hidden');
   };
+
+  document.getElementById('installBtn').onclick = installApp;
+  document.getElementById('installMobileBtn').onclick = installApp;
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (isIOS && !isStandalone) {
+    document.getElementById('installBtn').classList.remove('hidden');
+    document.getElementById('installMobileBtn').classList.remove('hidden');
+    document.getElementById('installMobileBtn').textContent = '＋ Añadir a inicio';
+  }
+
+  window.addEventListener('appinstalled', () => {
+    document.getElementById('installBtn').classList.add('hidden');
+    document.getElementById('installMobileBtn').classList.add('hidden');
+  });
 
   // Event delegation for dynamic content
   document.getElementById('content').addEventListener('click', handleContentClick);
@@ -205,6 +240,11 @@ function handleContentClick(e) {
 
   switch (action) {
     case 'open-movement': openMovement(); break;
+    case 'edit-movement': {
+      const movement = db.movements.find(m => m.id === id);
+      if (movement) openMovement(movement);
+      break;
+    }
     case 'delete-movement': deleteMovement(id); break;
     case 'open-debt': openDebt(id || ''); break;
     case 'open-payment': openPayment(id); break;
@@ -227,12 +267,18 @@ function handleModalClick(e) {
 
   const action = btn.dataset.modalAction;
   const id = btn.dataset.id;
+  const paymentId = btn.dataset.paymentId;
 
   switch (action) {
     case 'close': closeModal(); break;
     case 'save-movement': saveMovement(id || ''); break;
     case 'save-debt': saveDebt(id || ''); break;
-    case 'save-payment': savePayment(id); break;
+    case 'save-payment': savePayment(id, paymentId); break;
+    case 'edit-payment': {
+      const payment = db.payments.find(p => p.id === id);
+      if (payment) openPayment(payment.debtId, payment);
+      break;
+    }
     case 'delete-payment': deletePayment(id); break;
     case 'confirm-yes':
       if (window._confirmResolve) window._confirmResolve(true);
@@ -380,6 +426,22 @@ function monthTransfers() {
     .reduce((s, m) => s + Number(m.amount), 0);
 }
 
+function monthOpeningBalance() {
+  const startingBalance = db.accounts.reduce((sum, account) => sum + (Number(account.balance) || 0), 0);
+  const previousMovements = db.movements.filter(m => monthOf(m.date) < state.month);
+  const previousIncome = previousMovements
+    .filter(m => m.type === 'Ingreso')
+    .reduce((sum, m) => sum + Number(m.amount || 0), 0);
+  const previousExpenses = previousMovements
+    .filter(m => m.type === 'Gasto')
+    .reduce((sum, m) => sum + Number(m.amount || 0), 0);
+  const previousDebtPayments = db.payments
+    .filter(p => monthOf(p.date) < state.month)
+    .reduce((sum, p) => sum + Number(p.principal || 0) + Number(p.interest || 0) + Number(p.fees || 0), 0);
+
+  return startingBalance + previousIncome - previousExpenses - previousDebtPayments;
+}
+
 function debtPaidThisMonth() {
   return db.payments
     .filter(p => monthOf(p.date) === state.month)
@@ -425,10 +487,11 @@ function healthStatus(income, expenses) {
 // ═══════════════════════════════════════════════════════════════════
 
 function renderDashboard() {
+  const openingBalance = monthOpeningBalance();
   const inc = monthIncome();
   const exp = monthExpenses();
   const debt = debtPaidThisMonth();
-  const available = inc - exp - debt;
+  const available = openingBalance + inc - exp - debt;
   const debts = debtBalances();
   const pending = debts.reduce((s, d) => s + d.balance, 0);
   const health = healthStatus(inc, exp);
@@ -480,11 +543,17 @@ function renderDashboard() {
         <div class="metric-value" data-value="${debt}">${money(debt)}</div>
         <div class="metric-note">Capital + intereses + recargos</div>
       </div>
+      <div class="card stat-card opening-balance">
+        <div class="stat-icon">↗</div>
+        <div class="metric-label">Saldo anterior</div>
+        <div class="metric-value ${openingBalance < 0 ? 'bad' : 'good'}" data-value="${openingBalance}">${money(openingBalance)}</div>
+        <div class="metric-note">Acumulado hasta el mes previo</div>
+      </div>
       <div class="card stat-card available">
         <div class="stat-icon">${available < 0 ? '⚠️' : '💰'}</div>
-        <div class="metric-label">Disponible</div>
+        <div class="metric-label">Disponible al cierre</div>
         <div class="metric-value ${available < 0 ? 'bad' : 'good'}" data-value="${available}">${money(available)}</div>
-        <div class="metric-note">Ingresos − gastos − deudas</div>
+        <div class="metric-note">Saldo anterior + ingresos − gastos − deudas</div>
       </div>
       <div class="card stat-card pending">
         <div class="stat-icon">🏦</div>
@@ -534,7 +603,7 @@ function renderDashboard() {
           <table class="table">
             <thead>
               <tr>
-                <th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Cuenta</th><th>Monto</th>
+                <th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Cuenta</th><th>Monto</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -545,8 +614,9 @@ function renderDashboard() {
                   <td>${esc(m.description)}</td>
                   <td>${esc(m.account)}</td>
                   <td>${money(m.amount)}</td>
+                  <td><button class="small-btn" data-action="edit-movement" data-id="${m.id}" aria-label="Editar ${esc(m.description)}">Editar</button></td>
                 </tr>
-              `).join('') || '<tr><td colspan="5" class="empty">No hay movimientos.</td></tr>'}
+              `).join('') || '<tr><td colspan="6" class="empty">No hay movimientos.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -751,7 +821,7 @@ function renderMovements() {
       </div>
 
       <div class="table-wrap">
-        <table class="table">
+        <table class="table movements-table">
           <thead>
             <tr>
               <th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Categoría</th>
@@ -761,13 +831,14 @@ function renderMovements() {
           <tbody>
             ${rows.map(m => `
               <tr>
-                <td>${esc(m.date)}</td>
-                <td>${typePill(m.type)}</td>
-                <td>${esc(m.description)}</td>
-                <td>${esc(m.category || '—')}</td>
-                <td>${esc(m.account)}</td>
-                <td>${money(m.amount)}</td>
-                <td>
+                <td data-label="Fecha">${esc(m.date)}</td>
+                <td data-label="Tipo">${typePill(m.type)}</td>
+                <td data-label="Descripción">${esc(m.description)}</td>
+                <td data-label="Categoría">${esc(m.category || '—')}</td>
+                <td data-label="Cuenta">${esc(m.account)}</td>
+                <td data-label="Monto">${money(m.amount)}</td>
+                <td class="movement-actions" data-label="Acciones">
+                  <button class="small-btn" data-action="edit-movement" data-id="${m.id}" aria-label="Editar ${esc(m.description)}">Editar</button>
                   <button class="small-btn" data-action="delete-movement" data-id="${m.id}">Eliminar</button>
                 </td>
               </tr>
@@ -797,7 +868,7 @@ function movementForm(data = {}) {
       </div>
       <div class="field">
         <label>Fecha</label>
-        <input id="mDate" type="date" value="${data.date || new Date().toISOString().slice(0, 10)}">
+        <input id="mDate" type="date" value="${data.date || defaultMovementDate()}">
       </div>
       <div class="field">
         <label>Descripción</label>
@@ -848,7 +919,14 @@ function movementForm(data = {}) {
     </div>`;
 }
 
-function openMovement(existing) {
+function defaultMovementDate() {
+  const today = new Date();
+  const todayMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  if (state.month !== todayMonth) return `${state.month}-01`;
+  return `${todayMonth}-${String(today.getDate()).padStart(2, '0')}`;
+}
+
+function openMovement(existing = null) {
   document.getElementById('modalRoot').innerHTML = `
     <div class="modal-backdrop">
       <div class="modal">
@@ -888,14 +966,23 @@ function saveMovement(editId) {
     toast('Elige la cuenta destino.');
     return;
   }
+  if (data.type === 'Transferencia' && data.destinationAccount === data.account) {
+    toast('La cuenta de origen y destino deben ser distintas.');
+    return;
+  }
 
   if (editId) {
     const i = db.movements.findIndex(x => x.id === editId);
+    if (i < 0) {
+      toast('No se encontró el movimiento que quieres editar.');
+      return;
+    }
     db.movements[i] = { ...db.movements[i], ...data };
   } else {
     db.movements.push({ id: uid(), ...data });
   }
 
+  state.month = monthOf(data.date);
   save();
   closeModal();
   render();
@@ -1217,7 +1304,7 @@ async function deleteDebt(did) {
 
 // ── Payment Form & CRUD ───────────────────────────────────────────
 
-function paymentForm(d) {
+function paymentForm(d, payment = {}) {
   return `
     <div class="notice" style="margin-bottom:14px">
       <strong>${esc(d.creditor)}</strong> · Saldo actual ${money(d.balance)} · Cuota ${money(d.agreedPayment)}
@@ -1225,64 +1312,66 @@ function paymentForm(d) {
     <div class="form-grid">
       <div class="field">
         <label>Fecha de pago</label>
-        <input id="pDate" type="date" value="${new Date().toISOString().slice(0, 10)}">
+        <input id="pDate" type="date" value="${payment.date || defaultMovementDate()}">
       </div>
       <div class="field">
         <label>Tipo</label>
         <select id="pType">
-          <option>Cuota normal</option>
-          <option>Abono extraordinario</option>
-          <option>Intereses</option>
-          <option>Recargo</option>
+          <option ${payment.type === 'Cuota normal' || !payment.type ? 'selected' : ''}>Cuota normal</option>
+          <option ${payment.type === 'Abono extraordinario' ? 'selected' : ''}>Abono extraordinario</option>
+          <option ${payment.type === 'Intereses' ? 'selected' : ''}>Intereses</option>
+          <option ${payment.type === 'Recargo' ? 'selected' : ''}>Recargo</option>
         </select>
       </div>
       <div class="field">
         <label>Capital</label>
-        <input id="pPrincipal" type="number" min="0" step="1" value="${d.agreedPayment || ''}">
+        <input id="pPrincipal" type="number" min="0" step="1" value="${payment.principal ?? d.agreedPayment ?? ''}">
       </div>
       <div class="field">
         <label>Intereses</label>
-        <input id="pInterest" type="number" min="0" step="1" value="0">
+        <input id="pInterest" type="number" min="0" step="1" value="${payment.interest ?? 0}">
       </div>
       <div class="field">
         <label>Recargos</label>
-        <input id="pFees" type="number" min="0" step="1" value="0">
+        <input id="pFees" type="number" min="0" step="1" value="${payment.fees ?? 0}">
       </div>
       <div class="field">
         <label>Cuenta utilizada</label>
         <select id="pAcc">
-          ${db.accounts.map(a => `<option>${esc(a.name)}</option>`).join('')}
+          ${db.accounts.map(a => `<option ${payment.account === a.name ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}
         </select>
       </div>
       <div class="field full">
         <label>Referencia / notas</label>
-        <textarea id="pNotes" rows="2"></textarea>
+        <textarea id="pNotes" rows="2">${esc(payment.notes || '')}</textarea>
       </div>
     </div>`;
 }
 
-function openPayment(did) {
+function openPayment(did, payment = null) {
   const d = debtBalances().find(x => x.id === did);
+  const paymentDebt = payment ? { ...d, balance: d.balance + Number(payment.principal || 0) } : d;
   document.getElementById('modalRoot').innerHTML = `
     <div class="modal-backdrop">
       <div class="modal">
         <div class="modal-head">
-          <h3>Registrar pago</h3>
+          <h3>${payment ? 'Editar pago' : 'Registrar pago'}</h3>
           <button class="icon-btn" data-modal-action="close">×</button>
         </div>
-        ${paymentForm(d)}
+        ${paymentForm(paymentDebt, payment || {})}
         <div class="modal-actions">
           <button class="secondary-btn" data-modal-action="close">Cancelar</button>
-          <button class="primary-btn" data-modal-action="save-payment" data-id="${did}">Guardar pago</button>
+          <button class="primary-btn" data-modal-action="save-payment" data-id="${did}" data-payment-id="${payment?.id || ''}">Guardar pago</button>
         </div>
       </div>
     </div>`;
   document.body.classList.add('modal-open');
 }
 
-function savePayment(did) {
+function savePayment(did, paymentId = '') {
+  const previousPayment = paymentId ? db.payments.find(existing => existing.id === paymentId) : null;
   const p = {
-    id: uid(),
+    id: previousPayment?.id || uid(),
     debtId: did,
     date: document.getElementById('pDate').value,
     type: document.getElementById('pType').value,
@@ -1294,8 +1383,13 @@ function savePayment(did) {
   };
 
   const d = debtBalances().find(x => x.id === did);
+  if (!d) {
+    toast('No se encontró la deuda asociada a este pago.');
+    return;
+  }
 
-  if (p.principal > d.balance) {
+  const availablePrincipal = d.balance + Number(previousPayment?.principal || 0);
+  if (p.principal > availablePrincipal) {
     toast('El capital abonado no puede superar el saldo.');
     return;
   }
@@ -1304,11 +1398,21 @@ function savePayment(did) {
     return;
   }
 
-  db.payments.push(p);
+  if (previousPayment) {
+    const index = db.payments.findIndex(existing => existing.id === paymentId);
+    if (index < 0) {
+      toast('No se encontró el pago que quieres editar.');
+      return;
+    }
+    db.payments[index] = { ...previousPayment, ...p };
+  } else {
+    db.payments.push(p);
+  }
+  state.month = monthOf(p.date);
   save();
   closeModal();
   render();
-  toast('Pago registrado');
+  toast(previousPayment ? 'Pago actualizado' : 'Pago registrado');
 }
 
 function viewDebtPayments(did) {
@@ -1341,7 +1445,10 @@ function viewDebtPayments(did) {
                   <td>${money(p.interest)}</td>
                   <td>${money(p.fees)}</td>
                   <td>${esc(p.account || '')}</td>
-                  <td><button class="small-btn" data-modal-action="delete-payment" data-id="${p.id}">Eliminar</button></td>
+                  <td class="movement-actions">
+                    <button class="small-btn" data-modal-action="edit-payment" data-id="${p.id}">Editar</button>
+                    <button class="small-btn" data-modal-action="delete-payment" data-id="${p.id}">Eliminar</button>
+                  </td>
                 </tr>
               `).join('') || '<tr><td colspan="7" class="empty">Sin pagos.</td></tr>'}
             </tbody>

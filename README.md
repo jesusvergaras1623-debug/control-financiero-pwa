@@ -5,6 +5,8 @@ Versión web instalable y adaptada a celular. No necesita Python ni Streamlit.
 ## Qué incluye
 - Dashboard mensual con ingresos, gastos, pagos de deuda, disponible y deuda pendiente.
 - Movimientos: ingresos, gastos y transferencias.
+- Edición de movimientos y pagos registrados, incluso si se cambia su fecha o cuenta.
+- Saldo anterior acumulado automáticamente a partir de ingresos, gastos y pagos de deuda.
 - Presupuesto mensual por categoría.
 - Deudas: saldo, tasa, cuota, pagos y abonos extraordinarios.
 - Cuentas: Bancolombia, Nequi, Nu, Sistecredito, Efectivo y otras.

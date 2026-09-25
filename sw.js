@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════
-   Service Worker v3 — Network-first for HTML, Cache-first for assets
+   Service Worker v4 — Network-first for HTML, Cache-first for assets
    ═══════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'finanzas-v3';
+const CACHE_NAME = 'finanzas-v4';
 const ASSETS = [
   './',
   './index.html',
